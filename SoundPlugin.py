@@ -26,6 +26,7 @@ playlist = []
 class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         global playlist
+        obs.script_log(obs.LOG_DEBUG,"Got GET!")
 
         opts = dict()
         
@@ -39,7 +40,7 @@ class Handler(BaseHTTPRequestHandler):
                 splitopt = option.split("=")
                 opts[splitopt[0]]=splitopt[1]
 
-            #obs.script_log(obs.LOG_DEBUG,str(opts))
+            obs.script_log(obs.LOG_DEBUG,str(opts))
             
         else:
             filename = command
@@ -82,10 +83,28 @@ def server_handle():
 
 def server_task():
     global httpd
-    httpd.handle_request()
+    global stopserver
+    obs.script_log(obs.LOG_DEBUG, "Server task started")
+
+    while not stopserver:
+        httpd.timeout=0.001
+        httpd.handle_request()
+        sleep(0.1)
+        
+    obs.script_log(obs.LOG_DEBUG, "Server task stopped")
+
+
+    stopserver = False
 
 def stop_server():
     global httpd
+    global serverthread
+    global stopserver
+    obs.script_log(obs.LOG_DEBUG, "Server stopped")
+
+    if serverthread!=None:
+        stopserver = True
+        serverthread = None
 
     if httpd:
         httpd.server_close()
@@ -94,9 +113,17 @@ def stop_server():
 
 def start_server():
     global httpd
+    global serverthread
+
+    obs.script_log(obs.LOG_DEBUG, "Server started")
     
     server_address = ('',portnum)
     httpd = ThreadingHTTPServer(server_address,Handler)
+
+    if serverthread==None:
+        serverthread = Thread(target = server_task)
+        serverthread.start()
+    
     #httpd = HTTPServer(server_address,Handler)
     
 def manage_server():
@@ -164,11 +191,12 @@ def script_load(settings):
     obs.script_log(obs.LOG_DEBUG, "Loading script")
     hidesource()
     unsetfilename()
-    obs.timer_add(server_handle,100)
+    #obs.timer_add(server_handle,100)
+    start_server()
     obs.timer_add(play_task,100)
 
 def script_unload():
-    obs.timer_remove(server_handle)
+    #obs.timer_remove(server_handle)
     hidesource()
     unsetfilename()
     stop_server()
