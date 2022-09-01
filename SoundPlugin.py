@@ -89,7 +89,7 @@ def server_task():
     while not stopserver:
         httpd.timeout=0.001
         httpd.handle_request()
-        sleep(0.1)
+        sleep(1)
         
     obs.script_log(obs.LOG_DEBUG, "Server task stopped")
 
